@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.post
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class GeofenceDefinitionsControllerTest {
+class GeofenceDefinitionControllerTest {
 
     @Autowired
     private lateinit var mockMvc: MockMvc

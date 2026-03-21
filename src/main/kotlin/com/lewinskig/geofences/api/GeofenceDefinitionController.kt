@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class GeofenceDefinitionsController {
-    private val logger = LoggerFactory.getLogger(GeofenceDefinitionsController::class.java)
+class GeofenceDefinitionController {
+    private val logger = LoggerFactory.getLogger(GeofenceDefinitionController::class.java)
 
     @PostMapping("/geofences")
     fun createGeofence(@RequestBody geofenceDefinitionRequest: GeofenceDefinitionRequest): GeofenceDefinitionResponse {
