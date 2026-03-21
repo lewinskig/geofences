@@ -11,7 +11,6 @@ import java.time.Instant
 class LocationController(
     val locationUpdateRepository: LocationUpdateRepository
 ) {
-
     private val logger = LoggerFactory.getLogger(LocationController::class.java)
 
     @PostMapping("/location")
