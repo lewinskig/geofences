@@ -1,5 +1,6 @@
 package com.lewinskig.geofences.api
 
+import com.lewinskig.geofences.storage.LocationUpdateRepository
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -7,13 +8,16 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
 @RestController
-class LocationController {
+class LocationController(
+    val locationUpdateRepository: LocationUpdateRepository
+) {
 
     private val logger = LoggerFactory.getLogger(LocationController::class.java)
 
     @PostMapping("/location")
     fun updateLocation(@RequestBody location: LocationRequest) {
         logger.info("Received location update: trackId={}, lat={}, lng={}, timestamp={}", location.trackId, location.lat, location.lng, location.timestamp)
+        locationUpdateRepository.insert(location)
     }
 }
 
