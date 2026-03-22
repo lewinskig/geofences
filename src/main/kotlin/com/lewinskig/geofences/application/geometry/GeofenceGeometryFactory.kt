@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class GeofenceGeometryFactory @Autowired constructor(val geometryFactory: GeometryFactory) {
 
     fun createGeofenceGeometry(polygon: List<LatLng>): GeofenceGeometry {
-        val coordinates = polygon.map(LatLng::toCoordinate).toTypedArray()
+        val coordinates = closeRingIfNeeded(polygon).map(LatLng::toCoordinate).toTypedArray()
         val linearRing = geometryFactory.createLinearRing(coordinates)
         val geometry = geometryFactory.createPolygon(linearRing, null)
 
@@ -18,5 +18,14 @@ class GeofenceGeometryFactory @Autowired constructor(val geometryFactory: Geomet
             throw IllegalArgumentException("Invalid polygon geometry")
         }
         return GeofenceGeometry(geometry)
+    }
+
+    private fun closeRingIfNeeded(polygon: List<LatLng>): List<LatLng> {
+        if (polygon.isEmpty()) return polygon
+        val first = polygon.first()
+        val last = polygon.last()
+
+        return if (first == last) polygon
+        else polygon + first
     }
 }
