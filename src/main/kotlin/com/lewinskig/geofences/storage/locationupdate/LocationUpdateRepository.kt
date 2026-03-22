@@ -16,7 +16,7 @@ class LocationUpdateRepository(
             insert into location_updates(track_id, latitude, longitude, recorded_at)
             values (?, ?, ?, ?)
             """.trimIndent(),
-            tracker.trackId,
+            tracker.trackerId.id,
             tracker.latlng.lat,
             tracker.latlng.lng,
             OffsetDateTime.ofInstant(tracker.timestamp, ZoneOffset.UTC),

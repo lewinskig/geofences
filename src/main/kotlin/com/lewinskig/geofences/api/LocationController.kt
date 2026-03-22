@@ -3,6 +3,7 @@ package com.lewinskig.geofences.api
 import com.lewinskig.geofences.application.GeofenceService
 import com.lewinskig.geofences.application.LatLng
 import com.lewinskig.geofences.application.tracker.Tracker
+import com.lewinskig.geofences.application.tracker.TrackerId
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -25,7 +26,7 @@ class LocationController(
             location.timestamp
         )
         val tracker = Tracker(
-            trackId = location.trackId,
+            trackerId = TrackerId(location.trackId),
             latlng = LatLng(location.lat, location.lng),
             timestamp = location.timestamp
         )
@@ -33,4 +34,10 @@ class LocationController(
     }
 }
 
-data class LocationRequest(val trackId: String, val lat: Double, val lng: Double, val timestamp: Instant)
+data class LocationRequest(val trackId: String, val lat: Double, val lng: Double, val timestamp: Instant) {
+    init {
+        require(trackId.isNotBlank()) { "trackerId must not be blank" }
+        require(lat in -90.0..90.0) { "lat must be between -90 and 90" }
+        require(lng in -180.0..180.0) { "lng must be between -180 and 180" }
+    }
+}

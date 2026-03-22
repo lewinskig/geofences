@@ -4,6 +4,7 @@ import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.geometry.GeofenceGeometry
 import com.lewinskig.geofences.application.tracker.Tracker
+import com.lewinskig.geofences.application.tracker.TrackerId
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionEntity
@@ -65,7 +66,7 @@ class GeofenceServiceTest {
     @Nested
     inner class EvaluateLocation {
 
-        private val trackId = "tracker-123"
+        private val trackId = TrackerId("tracker-123")
         private val geofenceId = GeofenceId.randomGeofenceId()
 
         @Test
@@ -201,7 +202,7 @@ class GeofenceServiceTest {
         }
 
         private fun createTracker(lat: Double, lng: Double) = Tracker(
-            trackId = trackId,
+            trackerId = trackId,
             latlng = LatLng(lat, lng),
             timestamp = fixedInstant
         )

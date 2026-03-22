@@ -2,6 +2,7 @@ package com.lewinskig.geofences.storage.activegeofence
 
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.tracker.Tracker
+import com.lewinskig.geofences.application.tracker.TrackerId
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime.ofInstant
@@ -20,13 +21,13 @@ class ActiveGeofenceRepository(
             values 
                 (?, ?, ?)
             """,
-            entity.trackId,
+            entity.trackId.id,
             entity.geofenceId.uuid,
             ofInstant(entity.enteredAt, UTC)
         )
     }
 
-    fun geofenceExited(trackId: String, geofenceId: GeofenceId) {
+    fun geofenceExited(trackId: TrackerId, geofenceId: GeofenceId) {
         jdbcTemplate.update(
             """
             delete from 
@@ -34,7 +35,7 @@ class ActiveGeofenceRepository(
             where
                 track_id = ? and geofence_id = ?
             """,
-            trackId,
+            trackId.id,
             geofenceId.uuid
         )
     }
@@ -53,12 +54,12 @@ class ActiveGeofenceRepository(
             """,
             { rs, _ ->
                 ActiveGeofenceEntity(
-                    trackId = rs.getString("track_id"),
+                    trackId = TrackerId(rs.getString("track_id")),
                     geofenceId = GeofenceId(rs.getString("geofence_id")),
                     enteredAt = rs.getTimestamp("entered_at").toInstant()
                 )
             },
-            tracker.trackId
+            tracker.trackerId.id
         )
 }
 

@@ -3,6 +3,7 @@ package com.lewinskig.geofences.application
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.tracker.Tracker
+import com.lewinskig.geofences.application.tracker.TrackerId
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
@@ -43,7 +44,7 @@ class GeofenceService @Autowired constructor(
                 evaluateTransition(
                     isInsideGeofence,
                     isActive,
-                    tracker.trackId,
+                    tracker.trackerId,
                     geofenceCandidate.geofenceId
                 )
             }
@@ -52,7 +53,7 @@ class GeofenceService @Autowired constructor(
     private fun evaluateTransition(
         isInsideGeofence: Boolean,
         isActive: Boolean,
-        trackId: String,
+        trackId: TrackerId,
         geofenceId: GeofenceId
     ) = when {
         isInsideGeofence and isActive.not() -> {
