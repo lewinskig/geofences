@@ -1,6 +1,6 @@
 package com.lewinskig.geofences.application.notification.logging
 
-import com.lewinskig.geofences.application.notification.GeofenceTransition
+import com.lewinskig.geofences.application.transition.GeofenceTransition
 import com.lewinskig.geofences.application.notification.NotificationService
 import org.slf4j.LoggerFactory
 
