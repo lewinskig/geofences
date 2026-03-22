@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class GeofenceGeometryFactory @Autowired constructor(val geometryFactory: GeometryFactory) {
 
     fun createGeofenceGeometry(polygon: List<LatLng>): GeofenceGeometry {
-        val coordinates = polygon.map { Coordinate(it.lng, it.lat) }.toTypedArray()
+        val coordinates = polygon.map(LatLng::toCoordinate).toTypedArray()
         val linearRing = geometryFactory.createLinearRing(coordinates)
         val geometry = geometryFactory.createPolygon(linearRing, null)
 

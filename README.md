@@ -9,3 +9,4 @@
 
 # Todo: 
 [ ] Postgres: index tylko po czasie jest za słaby, trzeba by zmienić po trackId+czasie
+[ ] Spring: Error handling - nie ma globalnego handlera

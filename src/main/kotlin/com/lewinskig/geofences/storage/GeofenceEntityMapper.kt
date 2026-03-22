@@ -17,7 +17,7 @@ class GeofenceEntityMapper @Autowired constructor(
         createdAt = geofence.createdAt,
     )
 
-    fun fromEntity(entity: GeofenceDefinitionEntity) = Geofence(
+    fun toDomain(entity: GeofenceDefinitionEntity) = Geofence(
         geofenceId = entity.id,
         name = entity.name,
         geometry = geofenceGeometryWtkMapper.fromWkt(entity.geometryWkt),
