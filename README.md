@@ -10,3 +10,5 @@
 # Todo: 
 [ ] Postgres: index tylko po czasie jest za słaby, trzeba by zmienić po trackId+czasie
 [ ] Spring: Error handling - nie ma globalnego handlera
+[ ] Serwis: Narazie działa poza transakcją
+[ ] Serwis: Publikacja eventu i zapis do bazy - powinno być w jednej transakcji (outbox)

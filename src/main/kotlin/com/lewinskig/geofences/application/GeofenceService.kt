@@ -2,6 +2,10 @@ package com.lewinskig.geofences.application
 
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
+import com.lewinskig.geofences.application.notification.GeofenceTransition
+import com.lewinskig.geofences.application.notification.NotificationService
+import com.lewinskig.geofences.application.notification.TransitionType
+import com.lewinskig.geofences.application.notification.TransitionType.ENTERED
 import com.lewinskig.geofences.application.tracker.Tracker
 import com.lewinskig.geofences.application.tracker.TrackerId
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
@@ -9,7 +13,6 @@ import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
 import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -20,10 +23,9 @@ class GeofenceService @Autowired constructor(
     val geofenceEntityMapper: GeofenceEntityMapper,
     val locationUpdateRepository: LocationUpdateRepository,
     val activeGeofenceRepository: ActiveGeofenceRepository,
+    val notificationService: NotificationService,
     val clock: Clock
 ) {
-    private val logger = LoggerFactory.getLogger(GeofenceService::class.java)
-
     fun createNew(geofence: Geofence) {
         val entity = geofenceEntityMapper.toEntity(geofence)
         geofenceDefinitionRepository.insert(entity)
@@ -53,24 +55,37 @@ class GeofenceService @Autowired constructor(
     private fun evaluateTransition(
         isInsideGeofence: Boolean,
         isActive: Boolean,
-        trackId: TrackerId,
+        trackerId: TrackerId,
         geofenceId: GeofenceId
     ) = when {
         isInsideGeofence and isActive.not() -> {
+            val now = clock.instant()
             val activeGeofence = ActiveGeofenceEntity(
-                trackId = trackId,
+                trackId = trackerId,
                 geofenceId = geofenceId,
-                enteredAt = clock.instant()
+                enteredAt = now
             )
-
-            with(activeGeofence) {
-                logger.info("Tracker {} entered geofence {} at {}", trackId, geofenceId, enteredAt)
-            }
             activeGeofenceRepository.geofenceEntered(activeGeofence)
+
+            val event = GeofenceTransition(
+                geofenceId = geofenceId,
+                trackerId = trackerId,
+                type = ENTERED,
+                timestamp = now
+            )
+            notificationService.publish(event)
         }
 
         isInsideGeofence.not() and isActive -> {
-            activeGeofenceRepository.geofenceExited(trackId, geofenceId)
+            activeGeofenceRepository.geofenceExited(trackerId, geofenceId)
+
+            val event = GeofenceTransition(
+                geofenceId = geofenceId,
+                trackerId = trackerId,
+                type = TransitionType.EXITED,
+                timestamp = clock.instant()
+            )
+            notificationService.publish(event)
         }
 
         else -> {/*Either false positive or we are still inside - do nothing*/
