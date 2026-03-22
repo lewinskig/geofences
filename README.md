@@ -3,6 +3,8 @@
 A demo application for server-side polygon geofence evaluation.
 A tracker sends its location, and the server evaluates in real-time whether the tracker has entered/exited defined areas, publishing notifications via SSE.
 
+![Screenshot](documentation/screenshot.jpg)
+
 ## Tech Stack
 
 - **Kotlin 2.2** + **Java 24**
