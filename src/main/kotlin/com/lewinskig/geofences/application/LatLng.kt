@@ -8,5 +8,7 @@ data class LatLng(val lat: Double, val lng: Double) {
         require(lng in -180.0..180.0) { "lng must be between -180 and 180" }
     }
 
+    constructor(coordinate: Coordinate) : this(coordinate.y, coordinate.x)
+
     fun toCoordinate() = Coordinate(lng, lat)
 }
