@@ -227,6 +227,7 @@
             currentPosition.lng += deltaLng;
 
             userMarker.setLatLng([currentPosition.lat, currentPosition.lng]);
+            map.panTo([currentPosition.lat, currentPosition.lng]);
             sendLocation();
         }
 
