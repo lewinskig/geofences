@@ -4,21 +4,21 @@ import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.tracker.TrackerId
 import java.time.Instant
 
-data class GeofenceTransition(
+data class Transition(
     val geofenceId: GeofenceId,
     val trackerId: TrackerId,
     val type: TransitionType,
     val timestamp: Instant
 ) {
     companion object {
-        fun entered(geofenceId: GeofenceId, trackerId: TrackerId, timestamp: Instant) = GeofenceTransition(
+        fun entered(geofenceId: GeofenceId, trackerId: TrackerId, timestamp: Instant) = Transition(
             geofenceId = geofenceId,
             trackerId = trackerId,
             TransitionType.ENTERED,
             timestamp
         )
 
-        fun exited(geofenceId: GeofenceId, trackerId: TrackerId, timestamp: Instant) = GeofenceTransition(
+        fun exited(geofenceId: GeofenceId, trackerId: TrackerId, timestamp: Instant) = Transition(
             geofenceId = geofenceId,
             trackerId = trackerId,
             TransitionType.EXITED,

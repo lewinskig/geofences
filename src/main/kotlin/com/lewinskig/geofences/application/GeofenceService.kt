@@ -2,11 +2,12 @@ package com.lewinskig.geofences.application
 
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
-import com.lewinskig.geofences.application.transition.GeofenceTransition
+import com.lewinskig.geofences.application.transition.Transition
 import com.lewinskig.geofences.application.notification.NotificationService
 import com.lewinskig.geofences.application.transition.TransitionType.ENTERED
 import com.lewinskig.geofences.application.transition.TransitionType.EXITED
 import com.lewinskig.geofences.application.tracker.Tracker
+import com.lewinskig.geofences.application.transition.TransitionEvaluatorService
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
@@ -24,6 +25,7 @@ class GeofenceService @Autowired constructor(
     val locationUpdateRepository: LocationUpdateRepository,
     val activeGeofenceRepository: ActiveGeofenceRepository,
     val notificationService: NotificationService,
+    val transitionEvaluatorService: TransitionEvaluatorService,
     val clock: Clock
 ) {
     fun createNew(geofence: Geofence) {
@@ -36,18 +38,13 @@ class GeofenceService @Autowired constructor(
         locationUpdateRepository.insert(tracker)
 
         val activeGeofences = activeGeofenceRepository.findActiveGeofences(tracker)
-            .associateBy(ActiveGeofenceEntity::geofenceId)
 
         val geofenceCandidates = geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng)
             .map { geofenceEntityMapper.toDomain(it) }
-            .associateBy(Geofence::geofenceId)
 
-        evaluateTransitions(
-            activeGeofences = activeGeofences,
-            geofenceCandidates = geofenceCandidates,
-            tracker = tracker,
-            now = clock.instant()
-        )
+        val now = clock.instant()
+
+        transitionEvaluatorService.evaluateTransitions(activeGeofences, geofenceCandidates, tracker, now)
             .forEach { transition ->
                 when (transition.type) {
                     ENTERED -> {
@@ -69,41 +66,5 @@ class GeofenceService @Autowired constructor(
                 }
                 notificationService.publish(transition)
             }
-    }
-
-    private fun evaluateTransitions(
-        activeGeofences: Map<GeofenceId, ActiveGeofenceEntity>,
-        geofenceCandidates: Map<GeofenceId, Geofence>,
-        tracker: Tracker,
-        now: Instant
-    ): List<GeofenceTransition> {
-        val trackerId = tracker.trackerId
-
-        val activeIds = activeGeofences.keys
-        val candidateIds = geofenceCandidates.keys
-
-        val activeOnlyIds = activeIds subtract candidateIds
-        val candidateAndActiveIds = candidateIds intersect activeIds
-        val candidateOnlyIds = candidateIds subtract activeIds
-
-        val exitsOutsideBbox = activeOnlyIds.map { geofenceId ->
-            GeofenceTransition.exited(geofenceId, trackerId, now)
-        }
-
-        val exitsInsideBbox = candidateAndActiveIds.mapNotNull { geofenceId ->
-            when (geofenceCandidates.getValue(geofenceId).containsTracker(tracker)) {
-                false -> GeofenceTransition.exited(geofenceId, trackerId, now)
-                else -> null
-            }
-        }
-
-        val enters = candidateOnlyIds.mapNotNull { geofenceId ->
-            when (geofenceCandidates.getValue(geofenceId).containsTracker(tracker)) {
-                true -> GeofenceTransition.entered(geofenceId, trackerId, now)
-                else -> null
-            }
-        }
-
-        return exitsOutsideBbox + exitsInsideBbox + enters
     }
 }
