@@ -27,7 +27,7 @@ class ActiveGeofenceRepository(
         )
     }
 
-    fun geofenceExited(trackId: TrackerId, geofenceId: GeofenceId) {
+    fun geofenceExited(entity: ActiveGeofenceEntity) {
         jdbcTemplate.update(
             """
             delete from 
@@ -35,8 +35,8 @@ class ActiveGeofenceRepository(
             where
                 track_id = ? and geofence_id = ?
             """,
-            trackId.id,
-            geofenceId.uuid
+            entity.trackId.id,
+            entity.geofenceId.uuid
         )
     }
 
