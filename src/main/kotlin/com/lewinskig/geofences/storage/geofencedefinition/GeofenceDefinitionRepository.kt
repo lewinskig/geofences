@@ -1,4 +1,4 @@
-package com.lewinskig.geofences.storage
+package com.lewinskig.geofences.storage.geofencedefinition
 
 import com.lewinskig.geofences.application.LatLng
 import org.springframework.jdbc.core.JdbcTemplate

@@ -1,4 +1,4 @@
-package com.lewinskig.geofences.storage
+package com.lewinskig.geofences.storage.locationupdate
 
 import com.lewinskig.geofences.application.tracker.Tracker
 import org.springframework.jdbc.core.JdbcTemplate

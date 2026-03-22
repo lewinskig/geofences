@@ -1,8 +1,10 @@
-package com.lewinskig.geofences.storage
+package com.lewinskig.geofences.storage.geofencedefinition
 
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.LatLng
 import com.lewinskig.geofences.application.geometry.GeofenceEnvelope
+import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionEntity
+import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest

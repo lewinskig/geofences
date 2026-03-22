@@ -2,9 +2,9 @@ package com.lewinskig.geofences.application
 
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.tracker.Tracker
-import com.lewinskig.geofences.storage.GeofenceDefinitionRepository
-import com.lewinskig.geofences.storage.GeofenceEntityMapper
-import com.lewinskig.geofences.storage.LocationUpdateRepository
+import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
+import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
+import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

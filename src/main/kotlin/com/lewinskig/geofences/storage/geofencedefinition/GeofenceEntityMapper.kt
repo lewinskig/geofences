@@ -1,6 +1,7 @@
-package com.lewinskig.geofences.storage
+package com.lewinskig.geofences.storage.geofencedefinition
 
 import com.lewinskig.geofences.application.geofence.Geofence
+import com.lewinskig.geofences.storage.geofencedefinition.GeofenceGeometryWtkMapper
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 

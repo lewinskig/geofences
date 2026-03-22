@@ -1,4 +1,4 @@
-package com.lewinskig.geofences.storage
+package com.lewinskig.geofences.storage.geofencedefinition
 
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.geometry.GeofenceEnvelope
