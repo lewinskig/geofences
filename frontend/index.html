@@ -1,1 +1,264 @@
-Hello World
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geofences</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        html, body, #map {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script>
+        const TRACKER_ID = 'tracker-1';
+        const KRAKOW_RYNEK = { lat: 50.0617, lng: 19.9373 };
+        const METERS_PER_STEP = 25;
+
+        const GEOFENCE_STYLE_OUTSIDE = { color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.2 };
+        const GEOFENCE_STYLE_INSIDE = { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4 };
+
+        let map;
+        let userMarker;
+        let currentPosition = { ...KRAKOW_RYNEK };
+        let geofenceLayers = new Map(); // geofenceId -> layer
+        let layerToGeofence = new Map(); // layer._leaflet_id -> { geofenceId, name }
+
+        async function init() {
+            // 1. Load tracker position or use default
+            await loadTrackerPosition();
+
+            // 2. Initialize map
+            map = L.map('map').setView([currentPosition.lat, currentPosition.lng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // 3. Add user marker
+            userMarker = L.circleMarker([currentPosition.lat, currentPosition.lng], {
+                radius: 8,
+                fillColor: '#2196F3',
+                color: '#1565C0',
+                weight: 2,
+                fillOpacity: 0.9
+            }).addTo(map);
+
+            // 4. Setup drawing controls
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                draw: {
+                    polygon: true,
+                    polyline: false,
+                    circle: false,
+                    rectangle: false,
+                    marker: false,
+                    circlemarker: false
+                },
+                edit: false
+            });
+            map.addControl(drawControl);
+
+            // 5. Load existing geofences
+            await loadGeofences();
+
+            // 6. Setup draw event handler
+            map.on(L.Draw.Event.CREATED, async (event) => {
+                const layer = event.layer;
+                const name = prompt('Podaj nazwę geofence:');
+                if (!name) return;
+
+                const coordinates = layer.getLatLngs()[0].map(latlng => ({
+                    lat: latlng.lat,
+                    lng: latlng.lng
+                }));
+
+                try {
+                    const response = await fetch('/geofences', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, polygon: coordinates })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const geofenceId = data.geofenceId.uuid;
+
+                        geofenceLayers.set(geofenceId, layer);
+                        layerToGeofence.set(layer._leaflet_id, { geofenceId, name });
+
+                        layer.on('click', () => handleGeofenceClick(layer));
+                        map.addLayer(layer);
+                    } else {
+                        alert('Błąd podczas tworzenia geofence');
+                    }
+                } catch (e) {
+                    console.error('Error creating geofence:', e);
+                    alert('Błąd podczas tworzenia geofence');
+                }
+            });
+
+            // 7. Setup keyboard controls
+            document.addEventListener('keydown', handleKeyDown);
+
+            // 8. Connect to SSE
+            connectSSE();
+        }
+
+        async function loadTrackerPosition() {
+            try {
+                const response = await fetch(`/tracker/${TRACKER_ID}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    currentPosition = { lat: data.latlng.lat, lng: data.latlng.lng };
+                }
+            } catch (e) {
+                console.log('No tracker position found, using default');
+            }
+        }
+
+        async function loadGeofences() {
+            try {
+                const response = await fetch('/geofences');
+                if (response.ok) {
+                    const data = await response.json();
+                    data.geofences.forEach(geofence => {
+                        const coordinates = geofence.polygon.map(p => [p.lat, p.lng]);
+                        const layer = L.polygon(coordinates, GEOFENCE_STYLE_OUTSIDE).addTo(map);
+
+                        const geofenceId = geofence.geofenceId.uuid;
+                        geofenceLayers.set(geofenceId, layer);
+                        layerToGeofence.set(layer._leaflet_id, {
+                            geofenceId,
+                            name: geofence.name
+                        });
+
+                        layer.on('click', () => handleGeofenceClick(layer));
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading geofences:', e);
+            }
+        }
+
+        function handleGeofenceClick(layer) {
+            const info = layerToGeofence.get(layer._leaflet_id);
+            if (!info) return;
+
+            const shouldDelete = confirm(`Geofence: ${info.name}\n\nCzy chcesz usunąć ten geofence?`);
+            if (shouldDelete) {
+                deleteGeofence(info.geofenceId, layer);
+            }
+        }
+
+        async function deleteGeofence(geofenceId, layer) {
+            try {
+                const response = await fetch(`/geofences/${geofenceId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    map.removeLayer(layer);
+                    geofenceLayers.delete(geofenceId);
+                    layerToGeofence.delete(layer._leaflet_id);
+                } else {
+                    alert('Błąd podczas usuwania geofence');
+                }
+            } catch (e) {
+                console.error('Error deleting geofence:', e);
+                alert('Błąd podczas usuwania geofence');
+            }
+        }
+
+        function handleKeyDown(event) {
+            const key = event.key;
+            let deltaLat = 0;
+            let deltaLng = 0;
+
+            // ~25m in degrees (approximate)
+            const latDelta = METERS_PER_STEP / 111320;
+            const lngDelta = METERS_PER_STEP / (111320 * Math.cos(currentPosition.lat * Math.PI / 180));
+
+            switch (key) {
+                case 'ArrowUp':
+                    deltaLat = latDelta;
+                    break;
+                case 'ArrowDown':
+                    deltaLat = -latDelta;
+                    break;
+                case 'ArrowLeft':
+                    deltaLng = -lngDelta;
+                    break;
+                case 'ArrowRight':
+                    deltaLng = lngDelta;
+                    break;
+                default:
+                    return;
+            }
+
+            event.preventDefault();
+
+            currentPosition.lat += deltaLat;
+            currentPosition.lng += deltaLng;
+
+            userMarker.setLatLng([currentPosition.lat, currentPosition.lng]);
+            sendLocation();
+        }
+
+        async function sendLocation() {
+            try {
+                await fetch('/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        trackId: TRACKER_ID,
+                        lat: currentPosition.lat,
+                        lng: currentPosition.lng,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } catch (e) {
+                console.error('Error sending location:', e);
+            }
+        }
+
+        function connectSSE() {
+            const eventSource = new EventSource('/notifications');
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const transition = JSON.parse(event.data);
+                    const geofenceId = transition.geofenceId.uuid;
+                    const type = transition.type;
+
+                    const layer = geofenceLayers.get(geofenceId);
+                    if (layer) {
+                        const style = type === 'ENTERED' ? GEOFENCE_STYLE_INSIDE : GEOFENCE_STYLE_OUTSIDE;
+                        layer.setStyle(style);
+                    }
+                } catch (e) {
+                    console.error('Error parsing SSE event:', e);
+                }
+            };
+
+            eventSource.onerror = (e) => {
+                console.error('SSE connection error:', e);
+            };
+        }
+
+        init();
+    </script>
+</body>
+</html>
+
