@@ -1,6 +1,7 @@
 package com.lewinskig.geofences.application
 
 import com.lewinskig.geofences.application.geofence.Geofence
+import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.notification.NotificationService
 import com.lewinskig.geofences.application.transition.TransitionType.ENTERED
 import com.lewinskig.geofences.application.transition.TransitionType.EXITED
@@ -25,13 +26,18 @@ class GeofenceService @Autowired constructor(
     val transitionEvaluatorService: TransitionEvaluatorService,
     val clock: Clock
 ) {
-    fun createNew(geofence: Geofence) {
-        val entity = geofenceEntityMapper.toEntity(geofence)
-        geofenceDefinitionRepository.insert(entity)
-    }
+    fun create(geofence: Geofence) =
+        geofenceEntityMapper.toEntity(geofence)
+            .let(geofenceDefinitionRepository::insert)
+
+    fun getAll(): List<Geofence> =
+        geofenceDefinitionRepository.findAll()
+            .map(geofenceEntityMapper::toDomain)
+
+    fun delete(geofenceId: GeofenceId): Boolean =
+        geofenceDefinitionRepository.deleteById(geofenceId)
 
     fun evaluateLocation(tracker: Tracker) {
-
         locationUpdateRepository.insert(tracker)
 
         val activeGeofences = activeGeofenceRepository.findActiveGeofences(tracker)

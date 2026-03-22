@@ -3,8 +3,11 @@ package com.lewinskig.geofences.application
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.geometry.GeofenceGeometry
+import com.lewinskig.geofences.application.notification.NotificationService
 import com.lewinskig.geofences.application.tracker.Tracker
 import com.lewinskig.geofences.application.tracker.TrackerId
+import com.lewinskig.geofences.application.transition.Transition
+import com.lewinskig.geofences.application.transition.TransitionEvaluatorService
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionEntity
@@ -27,6 +30,8 @@ class GeofenceServiceTest {
     private val geofenceEntityMapper = mockk<GeofenceEntityMapper>()
     private val locationUpdateRepository = mockk<LocationUpdateRepository>(relaxed = true)
     private val activeGeofenceRepository = mockk<ActiveGeofenceRepository>(relaxed = true)
+    private val notificationService = mockk<NotificationService>(relaxed = true)
+    private val transitionEvaluatorService = mockk<TransitionEvaluatorService>()
 
     private val fixedInstant = Instant.parse("2026-03-22T10:00:00Z")
     private val clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
@@ -40,6 +45,8 @@ class GeofenceServiceTest {
             geofenceEntityMapper,
             locationUpdateRepository,
             activeGeofenceRepository,
+            notificationService,
+            transitionEvaluatorService,
             clock
         )
     }
@@ -55,7 +62,7 @@ class GeofenceServiceTest {
             every { geofenceEntityMapper.toEntity(geofence) } returns entity
 
             // when
-            service.createNew(geofence)
+            service.create(geofence)
 
             // then
             verify { geofenceEntityMapper.toEntity(geofence) }
@@ -64,9 +71,75 @@ class GeofenceServiceTest {
     }
 
     @Nested
+    inner class GetAll {
+
+        @Test
+        fun `should return all geofences mapped to domain`() {
+            // given
+            val entity1 = mockk<GeofenceDefinitionEntity>()
+            val entity2 = mockk<GeofenceDefinitionEntity>()
+            val geofence1 = mockk<Geofence>()
+            val geofence2 = mockk<Geofence>()
+
+            every { geofenceDefinitionRepository.findAll() } returns listOf(entity1, entity2)
+            every { geofenceEntityMapper.toDomain(entity1) } returns geofence1
+            every { geofenceEntityMapper.toDomain(entity2) } returns geofence2
+
+            // when
+            val result = service.getAll()
+
+            // then
+            assert(result == listOf(geofence1, geofence2))
+        }
+
+        @Test
+        fun `should return empty list when no geofences exist`() {
+            // given
+            every { geofenceDefinitionRepository.findAll() } returns emptyList()
+
+            // when
+            val result = service.getAll()
+
+            // then
+            assert(result.isEmpty())
+        }
+    }
+
+    @Nested
+    inner class Delete {
+
+        @Test
+        fun `should delete geofence by id and return true when deleted`() {
+            // given
+            val geofenceId = GeofenceId.randomGeofenceId()
+            every { geofenceDefinitionRepository.deleteById(geofenceId) } returns true
+
+            // when
+            val result = service.delete(geofenceId)
+
+            // then
+            assert(result)
+            verify { geofenceDefinitionRepository.deleteById(geofenceId) }
+        }
+
+        @Test
+        fun `should return false when geofence does not exist`() {
+            // given
+            val geofenceId = GeofenceId.randomGeofenceId()
+            every { geofenceDefinitionRepository.deleteById(geofenceId) } returns false
+
+            // when
+            val result = service.delete(geofenceId)
+
+            // then
+            assert(!result)
+        }
+    }
+
+    @Nested
     inner class EvaluateLocation {
 
-        private val trackId = TrackerId("tracker-123")
+        private val trackerId = TrackerId("tracker-123")
         private val geofenceId = GeofenceId.randomGeofenceId()
 
         @Test
@@ -75,6 +148,7 @@ class GeofenceServiceTest {
             val tracker = createTracker(lat = 52.0, lng = 21.0)
             every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
             every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns emptyList()
 
             // when
             service.evaluateLocation(tracker)
@@ -84,15 +158,41 @@ class GeofenceServiceTest {
         }
 
         @Test
-        fun `should record entry when tracker enters geofence for the first time`() {
+        fun `should delegate transition evaluation to TransitionEvaluatorService`() {
             // given
             val tracker = createTracker(lat = 52.0, lng = 21.0)
+            val activeGeofence = ActiveGeofenceEntity(trackerId, geofenceId, fixedInstant)
             val geofenceEntity = mockk<GeofenceDefinitionEntity>()
-            val geofence = createGeofenceThatContainsTracker(true)
+            val geofence = createGeofence()
 
-            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
+            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns listOf(activeGeofence)
             every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns listOf(geofenceEntity)
             every { geofenceEntityMapper.toDomain(geofenceEntity) } returns geofence
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns emptyList()
+
+            // when
+            service.evaluateLocation(tracker)
+
+            // then
+            verify {
+                transitionEvaluatorService.evaluateTransitions(
+                    activeGeofences = listOf(activeGeofence),
+                    geofenceCandidates = listOf(geofence),
+                    tracker = tracker,
+                    now = fixedInstant
+                )
+            }
+        }
+
+        @Test
+        fun `should record entry in repository when transition is ENTERED`() {
+            // given
+            val tracker = createTracker(lat = 52.0, lng = 21.0)
+            val enteredTransition = Transition.entered(geofenceId, trackerId, fixedInstant)
+
+            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
+            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns listOf(enteredTransition)
 
             // when
             service.evaluateLocation(tracker)
@@ -100,135 +200,81 @@ class GeofenceServiceTest {
             // then
             verify {
                 activeGeofenceRepository.geofenceEntered(
-                    ActiveGeofenceEntity(
-                        trackId = trackId,
-                        geofenceId = geofenceId,
-                        enteredAt = fixedInstant
-                    )
+                    ActiveGeofenceEntity(trackerId, geofenceId, fixedInstant)
                 )
             }
         }
 
         @Test
-        fun `should record exit when tracker leaves active geofence`() {
+        fun `should record exit in repository when transition is EXITED`() {
             // given
             val tracker = createTracker(lat = 52.0, lng = 21.0)
-            val geofenceEntity = mockk<GeofenceDefinitionEntity>()
-            val geofence = createGeofenceThatContainsTracker(false)
-            val activeGeofence = ActiveGeofenceEntity(
-                trackId = trackId,
-                geofenceId = geofenceId,
-                enteredAt = Instant.parse("2026-03-22T09:00:00Z")
-            )
-
-            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns listOf(activeGeofence)
-            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns listOf(geofenceEntity)
-            every { geofenceEntityMapper.toDomain(geofenceEntity) } returns geofence
-
-            // when
-            service.evaluateLocation(tracker)
-
-            // then
-            verify { activeGeofenceRepository.geofenceExited(trackId, geofenceId) }
-        }
-
-        @Test
-        fun `should not record anything when tracker stays inside active geofence`() {
-            // given
-            val tracker = createTracker(lat = 52.0, lng = 21.0)
-            val geofenceEntity = mockk<GeofenceDefinitionEntity>()
-            val geofence = createGeofenceThatContainsTracker(true)
-            val activeGeofence = ActiveGeofenceEntity(
-                trackId = trackId,
-                geofenceId = geofenceId,
-                enteredAt = Instant.parse("2026-03-22T09:00:00Z")
-            )
-
-            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns listOf(activeGeofence)
-            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns listOf(geofenceEntity)
-            every { geofenceEntityMapper.toDomain(geofenceEntity) } returns geofence
-
-            // when
-            service.evaluateLocation(tracker)
-
-            // then
-            verify(exactly = 0) { activeGeofenceRepository.geofenceEntered(any()) }
-            verify(exactly = 0) { activeGeofenceRepository.geofenceExited(any(), any()) }
-        }
-
-        @Test
-        fun `should not record entry when envelope matches but tracker is outside actual geometry (false positive)`() {
-            // given
-            val tracker = createTracker(lat = 52.0, lng = 21.0)
-            val geofenceEntity = mockk<GeofenceDefinitionEntity>()
-            val geofence = createGeofenceThatContainsTracker(false)
+            val exitedTransition = Transition.exited(geofenceId, trackerId, fixedInstant)
 
             every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
-            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns listOf(geofenceEntity)
-            every { geofenceEntityMapper.toDomain(geofenceEntity) } returns geofence
+            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns listOf(exitedTransition)
 
             // when
             service.evaluateLocation(tracker)
 
             // then
-            verify(exactly = 0) { activeGeofenceRepository.geofenceEntered(any()) }
+            verify {
+                activeGeofenceRepository.geofenceExited(
+                    ActiveGeofenceEntity(trackerId, geofenceId, fixedInstant)
+                )
+            }
         }
 
         @Test
-        fun `should handle multiple geofences independently`() {
+        fun `should publish notification for each transition`() {
             // given
             val tracker = createTracker(lat = 52.0, lng = 21.0)
-            
-            val geofenceId1 = GeofenceId.randomGeofenceId()
             val geofenceId2 = GeofenceId.randomGeofenceId()
-            
-            val geofenceEntity1 = mockk<GeofenceDefinitionEntity>()
-            val geofenceEntity2 = mockk<GeofenceDefinitionEntity>()
-            
-            val geofence1 = createGeofenceWithId(geofenceId1, containsTracker = true)
-            val geofence2 = createGeofenceWithId(geofenceId2, containsTracker = true)
+            val enteredTransition = Transition.entered(geofenceId, trackerId, fixedInstant)
+            val exitedTransition = Transition.exited(geofenceId2, trackerId, fixedInstant)
 
             every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
-            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns listOf(geofenceEntity1, geofenceEntity2)
-            every { geofenceEntityMapper.toDomain(geofenceEntity1) } returns geofence1
-            every { geofenceEntityMapper.toDomain(geofenceEntity2) } returns geofence2
+            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns listOf(enteredTransition, exitedTransition)
 
             // when
             service.evaluateLocation(tracker)
 
             // then
-            verify { activeGeofenceRepository.geofenceEntered(match { it.geofenceId == geofenceId1 }) }
-            verify { activeGeofenceRepository.geofenceEntered(match { it.geofenceId == geofenceId2 }) }
+            verify { notificationService.publish(enteredTransition) }
+            verify { notificationService.publish(exitedTransition) }
+        }
+
+        @Test
+        fun `should not record anything when no transitions detected`() {
+            // given
+            val tracker = createTracker(lat = 52.0, lng = 21.0)
+
+            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
+            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns emptyList()
+
+            // when
+            service.evaluateLocation(tracker)
+
+            // then
+            verify(exactly = 0) { activeGeofenceRepository.geofenceEntered(any()) }
+            verify(exactly = 0) { activeGeofenceRepository.geofenceExited(any()) }
+            verify(exactly = 0) { notificationService.publish(any()) }
         }
 
         private fun createTracker(lat: Double, lng: Double) = Tracker(
-            trackerId = trackId,
+            trackerId = trackerId,
             latlng = LatLng(lat, lng),
             timestamp = fixedInstant
         )
 
-        private fun createGeofenceThatContainsTracker(contains: Boolean): Geofence {
-            val geometry = mockk<GeofenceGeometry>()
-            every { geometry.containsCoordinate(any()) } returns contains
-            
-            return Geofence(
-                geofenceId = geofenceId,
-                name = "Test Geofence",
-                geometry = geometry,
-                createdAt = fixedInstant
-            )
-        }
-
-        private fun createGeofenceWithId(id: GeofenceId, containsTracker: Boolean): Geofence {
-            val geometry = mockk<GeofenceGeometry>()
-            every { geometry.containsCoordinate(any()) } returns containsTracker
-            
-            return Geofence(
-                geofenceId = id,
-                name = "Test Geofence ${id.uuid}",
-                geometry = geometry,
-                createdAt = fixedInstant
-            )
-        }
+        private fun createGeofence() = Geofence(
+            geofenceId = geofenceId,
+            name = "Test Geofence",
+            geometry = mockk<GeofenceGeometry>(),
+            createdAt = fixedInstant
+        )
     }
 }

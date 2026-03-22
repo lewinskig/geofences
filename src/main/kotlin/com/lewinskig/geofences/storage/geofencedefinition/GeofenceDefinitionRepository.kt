@@ -1,6 +1,7 @@
 package com.lewinskig.geofences.storage.geofencedefinition
 
 import com.lewinskig.geofences.application.LatLng
+import com.lewinskig.geofences.application.geofence.GeofenceId
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime.ofInstant
@@ -61,5 +62,31 @@ class GeofenceDefinitionRepository(
             point.lng,
             point.lng
         )
+
+    fun findAll(): List<GeofenceDefinitionEntity> =
+        jdbcTemplate.query(
+            """
+        select 
+            id, 
+            name, 
+            geometryWkt, 
+            envelope_min_lat, 
+            envelope_min_lng, 
+            envelope_max_lat,
+            envelope_max_lng, 
+            created_at 
+        from 
+            geofence_definition
+        """,
+            { rs, _ -> GeofenceDefinitionEntity(rs) }
+        )
+
+    fun deleteById(geofenceId: GeofenceId): Boolean {
+        val rowsAffected = jdbcTemplate.update(
+            "DELETE FROM geofence_definition WHERE id = ?",
+            geofenceId.uuid
+        )
+        return rowsAffected > 0
+    }
 }
 
