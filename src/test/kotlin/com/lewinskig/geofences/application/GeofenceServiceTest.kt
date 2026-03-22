@@ -14,7 +14,7 @@ import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionEnti
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
 import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
-import com.lewinskig.geofences.storage.tracker.TrackerLockRepository
+import com.lewinskig.geofences.storage.tracker.TrackerRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -33,7 +33,7 @@ class GeofenceServiceTest {
     private val activeGeofenceRepository = mockk<ActiveGeofenceRepository>(relaxed = true)
     private val notificationService = mockk<NotificationService>(relaxed = true)
     private val transitionEvaluatorService = mockk<TransitionEvaluatorService>()
-    private val trackerLockRepository = mockk<TrackerLockRepository>(relaxed = true)
+    private val trackerRepository = mockk<TrackerRepository>(relaxed = true)
 
     private val fixedInstant = Instant.parse("2026-03-22T10:00:00Z")
     private val clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
@@ -49,7 +49,7 @@ class GeofenceServiceTest {
             activeGeofenceRepository,
             notificationService,
             transitionEvaluatorService,
-            trackerLockRepository,
+            trackerRepository,
             clock
         )
     }
@@ -223,8 +223,10 @@ class GeofenceServiceTest {
             service.evaluateLocation(tracker)
 
             // then
-            verify { trackerLockRepository.ensureExists(trackerId) }
-            verify { trackerLockRepository.lock(trackerId) }
+            verify { trackerRepository.ensureExists(trackerId) }
+            verify {
+                trackerRepository.findByIdForUpdate(trackerId)
+            }
         }
 
         @Test

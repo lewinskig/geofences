@@ -3,17 +3,19 @@ package com.lewinskig.geofences.application
 import com.lewinskig.geofences.application.geofence.Geofence
 import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.notification.NotificationService
-import com.lewinskig.geofences.application.transition.TransitionType.ENTERED
-import com.lewinskig.geofences.application.transition.TransitionType.EXITED
 import com.lewinskig.geofences.application.tracker.Tracker
 import com.lewinskig.geofences.application.transition.Transition
 import com.lewinskig.geofences.application.transition.TransitionEvaluatorService
+import com.lewinskig.geofences.application.transition.TransitionType.ENTERED
+import com.lewinskig.geofences.application.transition.TransitionType.EXITED
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceEntity
 import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
 import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
-import com.lewinskig.geofences.storage.tracker.TrackerLockRepository
+import com.lewinskig.geofences.storage.tracker.TrackerEntity
+import com.lewinskig.geofences.storage.tracker.TrackerRepository
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -27,9 +29,11 @@ class GeofenceService @Autowired constructor(
     val activeGeofenceRepository: ActiveGeofenceRepository,
     val notificationService: NotificationService,
     val transitionEvaluatorService: TransitionEvaluatorService,
-    val trackerLockRepository: TrackerLockRepository,
+    val trackerRepository: TrackerRepository,
     val clock: Clock
 ) {
+    private val logger = LoggerFactory.getLogger(GeofenceService::class.java)
+
     fun create(geofence: Geofence) =
         geofenceEntityMapper.toEntity(geofence)
             .let(geofenceDefinitionRepository::insert)
@@ -55,8 +59,17 @@ class GeofenceService @Autowired constructor(
 
     @Transactional
     fun evaluateLocation(tracker: Tracker) {
-        trackerLockRepository.ensureExists(tracker.trackerId)
-        trackerLockRepository.lock(tracker.trackerId)
+        trackerRepository.ensureExists(tracker.trackerId)
+
+        val trackerLastSeen = trackerRepository.findByIdForUpdate(tracker.trackerId)
+        val incomingRecorderAt = tracker.timestamp
+
+        if (trackerLastSeen.lastRecordedAt != null &&
+            incomingRecorderAt.isBefore(trackerLastSeen.lastRecordedAt)
+        ) {
+            logger.warn("Received out-of-order location update for tracker ${tracker.trackerId}. Received tracker timestamp: $incomingRecorderAt, last seen recorded timestamp: ${trackerLastSeen.lastRecordedAt}")
+            return
+        }
 
         locationUpdateRepository.insert(tracker)
 
@@ -84,5 +97,6 @@ class GeofenceService @Autowired constructor(
                 )
                 notificationService.publish(transition)
             }
+        trackerRepository.updateLastSeen(TrackerEntity(tracker, clock.instant()))
     }
 }
