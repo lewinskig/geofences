@@ -13,8 +13,10 @@ import com.lewinskig.geofences.storage.activegeofence.ActiveGeofenceRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
 import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
+import com.lewinskig.geofences.storage.tracker.TrackerLockRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 
 @Service
@@ -25,6 +27,7 @@ class GeofenceService @Autowired constructor(
     val activeGeofenceRepository: ActiveGeofenceRepository,
     val notificationService: NotificationService,
     val transitionEvaluatorService: TransitionEvaluatorService,
+    val trackerLockRepository: TrackerLockRepository,
     val clock: Clock
 ) {
     fun create(geofence: Geofence) =
@@ -35,6 +38,7 @@ class GeofenceService @Autowired constructor(
         geofenceDefinitionRepository.findAll()
             .map(geofenceEntityMapper::toDomain)
 
+    @Transactional
     fun delete(geofenceId: GeofenceId): Boolean {
         activeGeofenceRepository.findByGeofenceId(geofenceId)
             .forEach { activeGeofence ->
@@ -49,7 +53,11 @@ class GeofenceService @Autowired constructor(
         return geofenceDefinitionRepository.deleteById(geofenceId)
     }
 
+    @Transactional
     fun evaluateLocation(tracker: Tracker) {
+        trackerLockRepository.ensureExists(tracker.trackerId)
+        trackerLockRepository.lock(tracker.trackerId)
+
         locationUpdateRepository.insert(tracker)
 
         val activeGeofences = activeGeofenceRepository.findActiveGeofences(tracker)

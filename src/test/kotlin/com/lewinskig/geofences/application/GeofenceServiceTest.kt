@@ -14,6 +14,7 @@ import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionEnti
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceDefinitionRepository
 import com.lewinskig.geofences.storage.geofencedefinition.GeofenceEntityMapper
 import com.lewinskig.geofences.storage.locationupdate.LocationUpdateRepository
+import com.lewinskig.geofences.storage.tracker.TrackerLockRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -32,6 +33,7 @@ class GeofenceServiceTest {
     private val activeGeofenceRepository = mockk<ActiveGeofenceRepository>(relaxed = true)
     private val notificationService = mockk<NotificationService>(relaxed = true)
     private val transitionEvaluatorService = mockk<TransitionEvaluatorService>()
+    private val trackerLockRepository = mockk<TrackerLockRepository>(relaxed = true)
 
     private val fixedInstant = Instant.parse("2026-03-22T10:00:00Z")
     private val clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
@@ -47,6 +49,7 @@ class GeofenceServiceTest {
             activeGeofenceRepository,
             notificationService,
             transitionEvaluatorService,
+            trackerLockRepository,
             clock
         )
     }
@@ -207,6 +210,22 @@ class GeofenceServiceTest {
 
         private val trackerId = TrackerId("tracker-123")
         private val geofenceId = GeofenceId.randomGeofenceId()
+
+        @Test
+        fun `should acquire lock on tracker before processing`() {
+            // given
+            val tracker = createTracker(lat = 52.0, lng = 21.0)
+            every { activeGeofenceRepository.findActiveGeofences(tracker) } returns emptyList()
+            every { geofenceDefinitionRepository.findByPointInEnvelope(tracker.latlng) } returns emptyList()
+            every { transitionEvaluatorService.evaluateTransitions(any(), any(), any(), any()) } returns emptyList()
+
+            // when
+            service.evaluateLocation(tracker)
+
+            // then
+            verify { trackerLockRepository.ensureExists(trackerId) }
+            verify { trackerLockRepository.lock(trackerId) }
+        }
 
         @Test
         fun `should always save location update for history`() {
