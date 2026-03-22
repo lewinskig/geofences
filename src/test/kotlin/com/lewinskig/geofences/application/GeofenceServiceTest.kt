@@ -108,10 +108,12 @@ class GeofenceServiceTest {
     @Nested
     inner class Delete {
 
+        private val geofenceId = GeofenceId.randomGeofenceId()
+
         @Test
         fun `should delete geofence by id and return true when deleted`() {
             // given
-            val geofenceId = GeofenceId.randomGeofenceId()
+            every { activeGeofenceRepository.findByGeofenceId(geofenceId) } returns emptyList()
             every { geofenceDefinitionRepository.deleteById(geofenceId) } returns true
 
             // when
@@ -125,7 +127,7 @@ class GeofenceServiceTest {
         @Test
         fun `should return false when geofence does not exist`() {
             // given
-            val geofenceId = GeofenceId.randomGeofenceId()
+            every { activeGeofenceRepository.findByGeofenceId(geofenceId) } returns emptyList()
             every { geofenceDefinitionRepository.deleteById(geofenceId) } returns false
 
             // when
@@ -133,6 +135,70 @@ class GeofenceServiceTest {
 
             // then
             assert(!result)
+        }
+
+        @Test
+        fun `should publish exit notifications for all active trackers before deleting`() {
+            // given
+            val tracker1 = TrackerId("tracker-1")
+            val tracker2 = TrackerId("tracker-2")
+            val enteredAt = fixedInstant.minusSeconds(3600)
+
+            val activeGeofences = listOf(
+                ActiveGeofenceEntity(tracker1, geofenceId, enteredAt),
+                ActiveGeofenceEntity(tracker2, geofenceId, enteredAt)
+            )
+
+            every { activeGeofenceRepository.findByGeofenceId(geofenceId) } returns activeGeofences
+            every { geofenceDefinitionRepository.deleteById(geofenceId) } returns true
+
+            // when
+            service.delete(geofenceId)
+
+            // then - notyfikacje o opuszczeniu dla każdego trackera
+            verify {
+                notificationService.publish(
+                    Transition.exited(geofenceId, tracker1, fixedInstant)
+                )
+            }
+            verify {
+                notificationService.publish(
+                    Transition.exited(geofenceId, tracker2, fixedInstant)
+                )
+            }
+        }
+
+        @Test
+        fun `should delete active geofences before deleting geofence definition`() {
+            // given
+            val activeGeofence = ActiveGeofenceEntity(
+                TrackerId("tracker-1"),
+                geofenceId,
+                fixedInstant.minusSeconds(3600)
+            )
+
+            every { activeGeofenceRepository.findByGeofenceId(geofenceId) } returns listOf(activeGeofence)
+            every { geofenceDefinitionRepository.deleteById(geofenceId) } returns true
+
+            // when
+            service.delete(geofenceId)
+
+            // then
+            verify { activeGeofenceRepository.deleteByGeofenceId(geofenceId) }
+            verify { geofenceDefinitionRepository.deleteById(geofenceId) }
+        }
+
+        @Test
+        fun `should not publish any notifications when no active trackers`() {
+            // given
+            every { activeGeofenceRepository.findByGeofenceId(geofenceId) } returns emptyList()
+            every { geofenceDefinitionRepository.deleteById(geofenceId) } returns true
+
+            // when
+            service.delete(geofenceId)
+
+            // then
+            verify(exactly = 0) { notificationService.publish(any()) }
         }
     }
 

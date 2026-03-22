@@ -52,14 +52,35 @@ class ActiveGeofenceRepository(
             where
              track_id = ?
             """,
-            { rs, _ ->
-                ActiveGeofenceEntity(
-                    trackId = TrackerId(rs.getString("track_id")),
-                    geofenceId = GeofenceId(rs.getString("geofence_id")),
-                    enteredAt = rs.getTimestamp("entered_at").toInstant()
-                )
-            },
+            { rs, _ -> ActiveGeofenceEntity(rs) },
             tracker.trackerId.id
+        )
+
+    fun findByGeofenceId(geofenceId: GeofenceId): List<ActiveGeofenceEntity> =
+        jdbcTemplate.query(
+            """
+            select
+                track_id, 
+                geofence_id, 
+                entered_at
+            from 
+                active_geofence
+            where
+                geofence_id = ?
+            """,
+            { rs, _ -> ActiveGeofenceEntity(rs) },
+            geofenceId.uuid
+        )
+
+    fun deleteByGeofenceId(geofenceId: GeofenceId): Int =
+        jdbcTemplate.update(
+            """
+            delete from 
+                active_geofence
+            where
+                geofence_id = ?
+            """,
+            geofenceId.uuid
         )
 }
 
