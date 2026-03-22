@@ -58,7 +58,9 @@ class SseNotificationChannel @Autowired constructor(
             eventEmitters.remove(emitter)
         }
         eventEmitters.add(emitter)
-        logger.info("notification emitter registered, the pool is now {}", eventEmitters.size)
+        logger.info("notification emitter registered")
         return emitter
     }
+
+    fun getActiveClientsCount(): Int = eventEmitters.size
 }
