@@ -1,6 +1,6 @@
 package com.lewinskig.geofences.storage
 
-import com.lewinskig.geofences.application.GeofenceId
+import com.lewinskig.geofences.application.geofence.GeofenceId
 import com.lewinskig.geofences.application.LatLng
 import com.lewinskig.geofences.application.geometry.GeofenceEnvelope
 import org.junit.jupiter.api.Test

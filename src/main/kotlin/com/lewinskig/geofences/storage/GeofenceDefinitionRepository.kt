@@ -1,15 +1,10 @@
 package com.lewinskig.geofences.storage
 
-import com.lewinskig.geofences.application.GeofenceId
 import com.lewinskig.geofences.application.LatLng
-import com.lewinskig.geofences.application.geometry.GeofenceEnvelope
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
-import java.sql.ResultSet
-import java.time.Instant
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
-import java.util.UUID
+import java.time.OffsetDateTime.ofInstant
+import java.time.ZoneOffset.UTC
 
 @Repository
 class GeofenceDefinitionRepository(
@@ -36,7 +31,7 @@ class GeofenceDefinitionRepository(
             entity.envelope.minLng,
             entity.envelope.maxLat,
             entity.envelope.maxLng,
-            OffsetDateTime.ofInstant(entity.createdAt, ZoneOffset.UTC)
+            ofInstant(entity.createdAt, UTC)
         )
     }
 
@@ -68,28 +63,3 @@ class GeofenceDefinitionRepository(
         )
 }
 
-data class GeofenceDefinitionEntity(
-    val id: GeofenceId,
-    val name: String,
-    val geometryWkt: String,
-    val envelope: GeofenceEnvelope,
-    val createdAt: Instant
-) {
-    init {
-        require(name.isNotBlank()) { "Geofence name must not be blank" }
-        require(name.length < 255) { "Geofence name must be less than 255 characters" }
-    }
-
-    constructor(rs: ResultSet) : this(
-        id = GeofenceId(rs.getString("id")),
-        name = rs.getString("name"),
-        geometryWkt = rs.getString("geometryWkt"),
-        envelope = GeofenceEnvelope(
-            minLat = rs.getDouble("envelope_min_lat"),
-            minLng = rs.getDouble("envelope_min_lng"),
-            maxLat = rs.getDouble("envelope_max_lat"),
-            maxLng = rs.getDouble("envelope_max_lng")
-        ),
-        createdAt = rs.getTimestamp("created_at").toInstant()
-    )
-}
