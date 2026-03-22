@@ -12,3 +12,4 @@
 [ ] Spring: Error handling - nie ma globalnego handlera
 [ ] Serwis: Narazie działa poza transakcją
 [ ] Serwis: Publikacja eventu i zapis do bazy - powinno być w jednej transakcji (outbox)
+[ ] Serwis: health-check

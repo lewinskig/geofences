@@ -1,11 +1,11 @@
 package com.lewinskig.geofences.application.notification.logging
 
+import com.lewinskig.geofences.application.notification.NotificationChannel
 import com.lewinskig.geofences.application.transition.Transition
-import com.lewinskig.geofences.application.notification.NotificationService
 import org.slf4j.LoggerFactory
 
-class LoggingNotificationService : NotificationService {
-    private val logger = LoggerFactory.getLogger(LoggingNotificationService::class.java)
+class LoggingNotificationChannel : NotificationChannel {
+    private val logger = LoggerFactory.getLogger(LoggingNotificationChannel::class.java)
 
     override fun publish(event: Transition) =
         logger.info("Publishing geofence transition: {}", event)
