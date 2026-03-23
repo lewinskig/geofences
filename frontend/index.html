@@ -26,9 +26,33 @@
         }
         #notification.entered { background: #22c55e; }
         #notification.exited { background: #3388ff; }
+        #default-geofences-container {
+            position: fixed;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+        }
+        #default-geofences-button {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #fff;
+            color: #0f172a;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+        }
+        #default-geofences-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
     </style>
 </head>
 <body>
+    <div id="default-geofences-container">
+        <button id="default-geofences-button" type="button">Default geofences</button>
+    </div>
     <div id="notification"></div>
     <div id="map"></div>
 
@@ -41,6 +65,99 @@
 
         const GEOFENCE_STYLE_OUTSIDE = { color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.2 };
         const GEOFENCE_STYLE_INSIDE = { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4 };
+        const DEFAULT_GEOFENCES = [
+            { name: 'Rynak Główny Kraków', polygon: [
+                { lat: 50.06139701200041, lng: 19.935821473251963 },
+                { lat: 50.06060881854114, lng: 19.93768906692037 },
+                { lat: 50.062007575497404, lng: 19.93884766669592 },
+                { lat: 50.062684736832495, lng: 19.93696278049387 },
+                { lat: 50.06139701200041, lng: 19.935821473251963 }
+            ] },
+            { name: 'AGH', polygon: [
+                { lat: 50.06391624984377, lng: 19.923641681671146 },
+                { lat: 50.064687608939686, lng: 19.918985366821293 },
+                { lat: 50.065748207443, lng: 19.913899898529056 },
+                { lat: 50.067428588226285, lng: 19.903149604797367 },
+                { lat: 50.069990366943955, lng: 19.90405082702637 },
+                { lat: 50.06908136435228, lng: 19.910531044006348 },
+                { lat: 50.06875081368358, lng: 19.91156101226807 },
+                { lat: 50.067580095075726, lng: 19.914629459381104 },
+                { lat: 50.067580095075726, lng: 19.91801977157593 },
+                { lat: 50.06576198129529, lng: 19.92407083511353 },
+                { lat: 50.06391624984377, lng: 19.923641681671146 }
+            ] },
+            { name: 'Park Krakowski', polygon: [
+                { lat: 50.06645066886604, lng: 19.92277264595032 },
+                { lat: 50.066023683737036, lng: 19.924381971359256 },
+                { lat: 50.06714623327532, lng: 19.924757480621338 },
+                { lat: 50.069170888099634, lng: 19.926162958145145 },
+                { lat: 50.07017629716976, lng: 19.924714565277103 },
+                { lat: 50.069343048682576, lng: 19.924221038818363 },
+                { lat: 50.06937748072501, lng: 19.923534393310547 },
+                { lat: 50.06645066886604, lng: 19.92277264595032 }
+            ] },
+            { name: 'Park Jordana', polygon: [
+                { lat: 50.061223282901956, lng: 19.912151098251346 },
+                { lat: 50.060052380555724, lng: 19.919704198837284 },
+                { lat: 50.06450165743521, lng: 19.918974637985233 },
+                { lat: 50.0656586773068, lng: 19.914028644561768 },
+                { lat: 50.061223282901956, lng: 19.912151098251346 }
+            ] },
+            { name: 'Błonia', polygon: [
+                { lat: 50.062593891106275, lng: 19.90252733230591 },
+                { lat: 50.059246507632366, lng: 19.924092292785648 },
+                { lat: 50.05693213064551, lng: 19.90802049636841 },
+                { lat: 50.05691835425775, lng: 19.906969070434574 },
+                { lat: 50.05676681373156, lng: 19.906325340271 },
+                { lat: 50.05847506104135, lng: 19.90357875823975 },
+                { lat: 50.059315386189034, lng: 19.901947975158695 },
+                { lat: 50.059935288749294, lng: 19.900381565093998 },
+                { lat: 50.062593891106275, lng: 19.90252733230591 }
+            ] },
+            { name: 'Centrum', polygon: [
+                { lat: 50.06358566357687, lng: 19.932932853698734 },
+                { lat: 50.06628538475087, lng: 19.935872554779056 },
+                { lat: 50.06639557422427, lng: 19.93993878364563 },
+                { lat: 50.064632512272766, lng: 19.944970607757572 },
+                { lat: 50.0634410313687, lng: 19.945088624954227 },
+                { lat: 50.06258011634424, lng: 19.944916963577274 },
+                { lat: 50.06109930635925, lng: 19.944101572036747 },
+                { lat: 50.05899165611275, lng: 19.9413013458252 },
+                { lat: 50.058599044365785, lng: 19.940968751907352 },
+                { lat: 50.054776077833104, lng: 19.93993878364563 },
+                { lat: 50.0541698857922, lng: 19.939219951629642 },
+                { lat: 50.054645196108844, lng: 19.938415288925174 },
+                { lat: 50.05531337801259, lng: 19.937632083892826 },
+                { lat: 50.05549247673543, lng: 19.936881065368652 },
+                { lat: 50.05558891423238, lng: 19.935979843139652 },
+                { lat: 50.05534093170577, lng: 19.93482112884522 },
+                { lat: 50.06202912261995, lng: 19.93173122406006 },
+                { lat: 50.06358566357687, lng: 19.932932853698734 }
+            ] },
+            { name: 'Wawel', polygon: [
+                { lat: 50.05498273246032, lng: 19.933329820632938 },
+                { lat: 50.055547583900264, lng: 19.935969114303592 },
+                { lat: 50.05532715486117, lng: 19.937481880187992 },
+                { lat: 50.054590087907656, lng: 19.938340187072757 },
+                { lat: 50.05410788844726, lng: 19.93914484977722 },
+                { lat: 50.052495929363076, lng: 19.935121536254886 },
+                { lat: 50.052509707020555, lng: 19.934145212173465 },
+                { lat: 50.05305392132774, lng: 19.93325471878052 },
+                { lat: 50.0535361313794, lng: 19.932836294174198 },
+                { lat: 50.0542801030965, lng: 19.93295431137085 },
+                { lat: 50.05498273246032, lng: 19.933329820632938 }
+            ] },
+            { name: 'Cmentarz Rakowicki', polygon: [
+                { lat: 50.074562664121004, lng: 19.946429729461673 },
+                { lat: 50.07300647938297, lng: 19.951128959655765 },
+                { lat: 50.0733094573619, lng: 19.951364994049072 },
+                { lat: 50.072042445805195, lng: 19.955184459686283 },
+                { lat: 50.0745075787978, lng: 19.95728731155396 },
+                { lat: 50.07585715099861, lng: 19.957995414733887 },
+                { lat: 50.07852864108585, lng: 19.9492621421814 },
+                { lat: 50.074562664121004, lng: 19.946429729461673 }
+            ] }
+        ];
 
         let map;
         let userMarker;
@@ -107,13 +224,7 @@
 
                     if (response.ok) {
                         const data = await response.json();
-                        const geofenceId = data.geofenceId.uuid;
-
-                        geofenceLayers.set(geofenceId, layer);
-                        layerToGeofence.set(layer._leaflet_id, { geofenceId, name });
-
-                        layer.on('click', () => handleGeofenceClick(layer));
-                        map.addLayer(layer);
+                        addGeofenceLayer(data.geofenceId.uuid, name, coordinates);
                     } else {
                         alert('Błąd podczas tworzenia geofence');
                     }
@@ -126,8 +237,27 @@
             // 7. Setup keyboard controls
             document.addEventListener('keydown', handleKeyDown);
 
-            // 8. Connect to SSE
+            // 8. Setup default geofences button
+            const defaultGeofencesButton = document.getElementById('default-geofences-button');
+            defaultGeofencesButton.addEventListener('click', createDefaultGeofences);
+
+            // 9. Connect to SSE
             connectSSE();
+        }
+
+        function addGeofenceLayer(geofenceId, name, polygon) {
+            const coordinates = polygon.map(p => [p.lat, p.lng]);
+            const layer = L.polygon(coordinates, GEOFENCE_STYLE_OUTSIDE).addTo(map);
+            geofenceLayers.set(geofenceId, layer);
+            layerToGeofence.set(layer._leaflet_id, { geofenceId, name });
+            layer.on('click', () => handleGeofenceClick(layer));
+        }
+
+        function hasGeofenceWithName(name) {
+            for (const [, info] of layerToGeofence) {
+                if (info.name === name) return true;
+            }
+            return false;
         }
 
         async function loadTrackerPosition() {
@@ -148,17 +278,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     data.geofences.forEach(geofence => {
-                        const coordinates = geofence.polygon.map(p => [p.lat, p.lng]);
-                        const layer = L.polygon(coordinates, GEOFENCE_STYLE_OUTSIDE).addTo(map);
-
-                        const geofenceId = geofence.geofenceId.uuid;
-                        geofenceLayers.set(geofenceId, layer);
-                        layerToGeofence.set(layer._leaflet_id, {
-                            geofenceId,
-                            name: geofence.name
-                        });
-
-                        layer.on('click', () => handleGeofenceClick(layer));
+                        addGeofenceLayer(geofence.geofenceId.uuid, geofence.name, geofence.polygon);
                     });
                 }
             } catch (e) {
@@ -292,6 +412,50 @@
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 3000);
+        }
+
+        async function createDefaultGeofences() {
+            const button = document.getElementById('default-geofences-button');
+            button.disabled = true;
+            button.textContent = 'Tworzenie...';
+
+            let createdCount = 0;
+            let skippedCount = 0;
+            const failedNames = [];
+
+            for (const geofence of DEFAULT_GEOFENCES) {
+                if (hasGeofenceWithName(geofence.name)) {
+                    skippedCount += 1;
+                    continue;
+                }
+
+                try {
+                    const response = await fetch('/geofences', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: geofence.name, polygon: geofence.polygon })
+                    });
+
+                    if (!response.ok) {
+                        failedNames.push(geofence.name);
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    addGeofenceLayer(data.geofenceId.uuid, geofence.name, geofence.polygon);
+                    createdCount += 1;
+                } catch (e) {
+                    console.error(`Error creating default geofence ${geofence.name}:`, e);
+                    failedNames.push(geofence.name);
+                }
+            }
+
+            button.disabled = false;
+            button.textContent = 'Default geofences';
+
+            const parts = [`Utworzono: ${createdCount}`, `Pominięto: ${skippedCount}`];
+            if (failedNames.length > 0) parts.push(`Błędy: ${failedNames.join(', ')}`);
+            alert(parts.join('\n'));
         }
 
         init();
